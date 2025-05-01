@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  n8n:
+    image: n8nio/n8n
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      # Konfigurasi dasar
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin_floonic  
+      - N8N_BASIC_AUTH_PASSWORD=@Baim131018  
+      
+      # Konfigurasi Redis untuk queue management
+      - N8N_REDIS_HOST=redis
+      - N8N_QUEUE_BULL_REDIS_HOST=redis
+      - N8N_QUEUE_BULL_REDIS_DB=0
+      
+      # Worker settings (sesuaikan dengan vCPU instance)
+      - N8N_CONCURRENCY=2  
+      - N8N_DIAGNOSTICS_ENABLED=false  
+      
+      # Optimasi performa
+      - N8N_DISABLE_PRODUCTION_MAIN_PROCESS=false
+      - N8N_DISABLE_WEBHOOK_DEPLOYMENT=false
+      
+    volumes:
+      - ~/.n8n:/home/node/.n8n  # Persist workflow data
+    depends_on:
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5' 
+          memory: 2.5G  
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    restart: always
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru --save 60 1000
+    volumes:
+      - ~/redis-data:/data  # Persist Redis data
+      - ~/redis-conf/redis.conf:/usr/local/etc/redis/redis.conf  # Opsional untuk custom config
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  redis-commander:  
+    image: rediscommander/redis-commander
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    depends_on:
+      - redis
+
+volumes:
+  n8n-data:
+  redis-data:
